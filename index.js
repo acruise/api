@@ -6,6 +6,7 @@ var bunyan = require('bunyan');
 var Hapi = require('hapi');
 var handlebars = require('handlebars');
 var layouts = require('handlebars-layouts');
+var CIDR = require('ip-cidr');
 
 var conf = convict({
     port: {
@@ -14,6 +15,20 @@ var conf = convict({
         default: '8080',
         env: 'PORT',
         arg: 'port'
+    },
+    write_network: {
+        doc: 'CIDR network that is allowed to write (empty/unset -> no writes allowed!)',
+        format: function (val) {
+            let cidr = new CIDR(val);
+            if (!cidr.isValid()) {
+                throw 'write_network must be in CIDR notation!';
+            }
+
+            return cidr;
+        },
+        default: null,
+        env: 'WRITE_NETWORK',
+        arg: 'write-network'
     },
     influx_host: {
         doc: 'Influx Host',
@@ -80,6 +95,12 @@ server.register([
   {
     register: require('hapi-bunyan'),
     options: {logger: logger}
+  },
+  {
+    register: require('ip-cidr'),
+    options: {
+        write_network: conf.get('write_network')
+    }
   }],
 
   function () {

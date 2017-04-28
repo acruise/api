@@ -1,5 +1,6 @@
 'use strict';
 var Datastore = require('./datastore');
+var CIDR = require('ip-cidr');
 
 var routes = function(server) {
 
@@ -103,9 +104,21 @@ server.route({
 // update the value as a GET (but really should be a POST)
 // /s/vhs/data/isopen/update?value=closed
 server.route({
-  method: 'GET',
-  path: '/s/{spacename}/data/{dataname}/update',
+  method: 'PUT',
+  path: '/s/{spacename}/data/{dataname}',
   handler: function(request, reply) {
+    write_cidr = request.server.plugins['write_network'].write_network;
+
+    val allIps = write_cidr.toArray(); // TODO this is horribly inefficient, do a single check instead of enumerating the whole network
+    val thisIp = request.info.address;
+
+    if (allIps.contains(thisIp)) {
+        request.log.info("OK, " + thisIp + " is in " + write_cidr)
+    } else {
+        request.log.error("NOPE nice try buddy! " + thisIp + " is not in " + write_cidr)
+        return reply(403);
+    }
+
     var influx = request.server.plugins['influx'].influx;
     if (request.url.query.value === undefined) {
       request.log.error(err);
